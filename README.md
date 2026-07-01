@@ -11,105 +11,362 @@ React, Vue, Svelte, or plain HTML** with **zero runtime dependencies** and no CS
 conflicts with your app.
 
 - 🔌 One-call setup, or use `<debug-console>` in your own markup
-- 🪶 Zero runtime deps, ~small, tree-shakeable (ESM + CJS + types)
+- 🪶 Zero runtime deps, tree-shakeable (ESM + CJS + types)
 - 🎯 Captures `console.*` + `window` `error` / `unhandledrejection`
 - 🧱 Shadow-DOM isolated: fixed dark "terminal" look, self-contained tooltips
-- 🧰 Filter chips, auto-scroll (pin), jump-to-bottom, download `.log`, clear
+- 🧰 Filter chips, auto-scroll, jump-to-bottom, download `.log`, clear
 - 🧠 Bounded buffer (default 500, oldest dropped); safe stringify (circular refs, `bigint`, `Error`)
+- 🖥️ SSR-safe (no-ops when there is no DOM)
+
+## Contents
+
+- [Requirements](#requirements)
+- [Install](#install)
+- [Quick start](#quick-start)
+- [Declarative usage](#declarative-usage-render-the-element-yourself)
+- [Per-framework notes](#per-framework-notes)
+- [Panel controls](#panel-controls)
+- [API reference](#api-reference)
+- [Configuration options](#configuration-options)
+- [Theming (CSS variables & parts)](#theming)
+- [Recipes](#recipes)
+- [Troubleshooting](#troubleshooting)
+- [Develop & run the demo](#develop--run-the-demo)
+- [Limitations / out of scope](#limitations--out-of-scope)
+
+## Requirements
+
+- **Runtime:** any evergreen browser (Chrome/Edge, Firefox, Safari). The overlay
+  is a native [Web Component](https://developer.mozilla.org/docs/Web/API/Web_components)
+  using Shadow DOM and needs no polyfills on modern browsers.
+- **Bundler / TypeScript:** none required. The package ships **ESM** (`import`),
+  **CommonJS** (`require`), and **TypeScript type declarations**, so it works with
+  Vite, webpack, Rollup, esbuild, Angular CLI, Next.js, plain `<script type="module">`,
+  and Node-based tooling alike. Built target is **ES2020**.
+- **Runtime dependencies:** zero.
+- **Server-side rendering:** safe — every entry point no-ops when there is no DOM,
+  so it won't throw during SSR/prerender.
 
 ## Install
 
+With a bundler or Node toolchain:
+
 ```bash
 npm install @neuradigi/debug-console
+# or: pnpm add @neuradigi/debug-console  /  yarn add @neuradigi/debug-console
 ```
 
-## Quick start (any framework)
+**No build step? Use a CDN.** For a plain `.html` file with no bundler, import the
+ESM build straight from a CDN — no install needed:
+
+```html
+<script type="module">
+  import { initDebugConsole } from 'https://esm.sh/@neuradigi/debug-console';
+  initDebugConsole();
+</script>
+```
+
+(unpkg / jsDelivr work too, e.g. `https://cdn.jsdelivr.net/npm/@neuradigi/debug-console/+esm`.)
+
+## Quick start
+
+Call `initDebugConsole()` **once, as early as possible** in your app's entry file
+so logs are captured from boot:
 
 ```ts
 import { initDebugConsole } from '@neuradigi/debug-console';
 
 initDebugConsole({
-  enabled: process.env.NODE_ENV !== 'production', // hide in prod with one flag
+  enabled: process.env.NODE_ENV !== 'production', // hide entirely in prod
   max: 500,
-  position: 'top-right'
+  position: 'top-right',
+  open: false // start collapsed (launcher icon only); true = start expanded
 });
 ```
 
-Call it **once, as early as possible** in your app's entry file so logs are
-captured from boot. That's it — a launcher button appears; click it to open the panel.
+That's it — a launcher button appears in the corner; click it to open the panel.
+See [Configuration options](#configuration-options) for every setting.
 
-### Declarative usage (render the element yourself)
+## Declarative usage (render the element yourself)
+
+If you'd rather place the element in your own markup instead of auto-mounting:
 
 ```ts
 import { defineDebugConsole, startCapture } from '@neuradigi/debug-console';
 
-startCapture();        // begin mirroring console.* + errors
-defineDebugConsole();  // register the <debug-console> element
+startCapture();        // begin mirroring console.* + errors (no UI)
+defineDebugConsole();  // register the <debug-console> custom element
 ```
 
 ```html
+<!-- position via the data-position attribute -->
 <debug-console data-position="top-right"></debug-console>
 ```
 
 ## Per-framework notes
 
-**Angular** — call `initDebugConsole()` in `main.ts` (or an `APP_INITIALIZER`). The
-`<debug-console>` tag needs no `CUSTOM_ELEMENTS_SCHEMA` when mounted via
-`initDebugConsole()`. If you place the tag in a template instead, add
-`CUSTOM_ELEMENTS_SCHEMA` to that component.
+In every framework the simplest path is the same: call `initDebugConsole()` **once**
+at your app's entry point and you're done — no template tag, no schema, no registration.
+The notes below only matter if you'd rather place the `<debug-console>` tag in your own
+markup (see [Declarative usage](#declarative-usage-render-the-element-yourself)).
 
-**React** — call `initDebugConsole()` in your entry (e.g. `main.tsx`). Custom
-elements work in JSX; if you place `<debug-console />` yourself and use TS, add an
-`IntrinsicElements` declaration.
+**Angular** — call `initDebugConsole()` in `main.ts` (or an `APP_INITIALIZER`). No
+`CUSTOM_ELEMENTS_SCHEMA` is needed when mounted via `initDebugConsole()`. Only if you
+put the `<debug-console>` tag in a template do you need the schema on that component:
 
-**Vue** — call `initDebugConsole()` in `main.ts`. If you use the tag in templates,
-mark it as a custom element in your Vue compiler options
-(`isCustomElement: tag => tag === 'debug-console'`).
+```ts
+import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 
-**Plain HTML** — `import { initDebugConsole } from '@neuradigi/debug-console'; initDebugConsole();`
+@Component({ /* ... */, schemas: [CUSTOM_ELEMENTS_SCHEMA] })
+export class AppComponent {}
+```
 
-## API
+**React** — call `initDebugConsole()` in your entry (e.g. `main.tsx`). Custom elements
+work in JSX out of the box. Only if you write `<debug-console />` yourself in **TypeScript**
+do you need to declare the tag (once, in any `.d.ts` or your entry file):
+
+```tsx
+declare global {
+  namespace JSX {
+    interface IntrinsicElements {
+      'debug-console': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement>
+        & { 'data-position'?: string };
+    }
+  }
+}
+```
+
+**Vue** — call `initDebugConsole()` in `main.ts`. If you use the tag in a template, tell
+the compiler it's a custom element so Vue doesn't warn or try to resolve it as a component:
+
+```ts
+// vite.config.ts
+import vue from '@vitejs/plugin-vue';
+
+export default {
+  plugins: [vue({
+    template: { compilerOptions: { isCustomElement: tag => tag === 'debug-console' } }
+  })]
+};
+```
+
+**Svelte / SvelteKit** — call `initDebugConsole()` in `onMount` (or the client entry).
+Svelte passes unknown tags through to the DOM, so `<debug-console>` needs no config. On
+SvelteKit, guard for the browser (the call already no-ops during SSR, so `onMount` is enough).
+
+**Plain HTML** — with a bundler, `import { initDebugConsole } from '@neuradigi/debug-console'`.
+Without one, import from a CDN as shown in [Install](#install).
+
+## Panel controls
+
+What the UI exposes at runtime:
+
+| Control | What it does |
+|---|---|
+| **Launcher** (corner button) | Opens the panel. While **closed**, shows a count **badge** for errors/warnings (red if any errors, amber if only warnings). Hidden while the panel is open. |
+| **Title + count pill** | "Application Logs" with the total number of buffered entries. |
+| **Filter chips** | `All / Log / Info / Warn / Error`. `Log` also includes `debug` entries. |
+| **Auto-scroll** (pin) | Toggle. When on, the list follows the newest line. Lit when active. |
+| **Scroll to bottom** (double chevron) | Jumps to the latest entry (handy when auto-scroll is off). |
+| **Download** | Exports the full buffer to `application-logs-YYYYMMDD-HHmmss.log` (one line per entry: `[YYYY-MM-DD HH:mm:ss.SSS] LEVEL message`). Disabled when empty. |
+| **Clear** | Empties the buffer. Disabled when empty. |
+| **Close** | Collapses the panel back to the launcher. |
+
+Levels are colour-coded: error = red, warn = amber, info = brand/blue, log/debug = muted gray.
+
+## API reference
 
 ### `initDebugConsole(options?): DebugConsoleHandle | null`
 
-Starts capturing and mounts the overlay at `document.body`. Returns a handle, or
-`null` when `enabled: false` or there is no DOM (SSR-safe).
+Starts capturing and mounts the overlay at `document.body`. Idempotent — a second
+call reuses the existing overlay instead of stacking another. Returns a
+[handle](#debugconsolehandle), or `null` when `enabled: false` or there is no DOM (SSR).
+
+### `startCapture(options?): void`
+
+Begins mirroring `console.*` and capturing global errors **without** mounting any UI
+(use with [declarative usage](#declarative-usage-render-the-element-yourself)).
+Accepts `{ max?, captureGlobalErrors? }`. Idempotent.
+
+### `defineDebugConsole(name?: string): void`
+
+Registers the custom element (default tag `debug-console`). Idempotent and
+browser-only. Pass a name to register under a different tag.
+
+### `ELEMENT_NAME: string`
+
+The default custom-element tag name (`'debug-console'`).
+
+### `logger`
+
+The shared capture core, if you want to read/observe the buffer yourself:
+
+| Member | Type | Description |
+|---|---|---|
+| `logger.entries` | `readonly LogEntry[]` | Current buffer, oldest → newest. |
+| `logger.limit` | `number` | Configured buffer cap. |
+| `logger.subscribe(fn)` | `(e: LogEvent) => void` ⇒ `() => void` | Subscribe to changes; returns an unsubscribe fn. |
+| `logger.clear()` | `void` | Empty the buffer. |
+| `logger.init(opts?)` | `void` | Patch console + error hooks (called for you by `initDebugConsole`/`startCapture`). |
+
+```ts
+import { logger } from '@neuradigi/debug-console';
+const off = logger.subscribe(e => { if (e.type === 'add') myTelemetry(e.entry); });
+// ...later: off();
+```
+
+### `DebugConsoleHandle`
+
+Returned by `initDebugConsole()`:
+
+| Member | Description |
+|---|---|
+| `element` | The mounted `<debug-console>` element. |
+| `show()` | Open the panel. |
+| `hide()` | Close the panel. |
+| `toggle()` | Toggle the panel. |
+| `clear()` | Empty the buffer. |
+| `destroy()` | Remove the element from the DOM. |
+
+### Types
+
+`DebugConsoleOptions`, `DebugConsoleHandle`, `LauncherPosition`, `LogEntry`,
+`LogLevel`, `LogEvent` are all exported.
+
+```ts
+type LogLevel = 'log' | 'info' | 'warn' | 'error' | 'debug';
+interface LogEntry { id: number; level: LogLevel; time: Date; text: string; }
+```
+
+## Configuration options
+
+Every field of `DebugConsoleOptions` (all optional):
 
 | Option | Type | Default | Description |
 |---|---|---|---|
-| `enabled` | `boolean` | `true` | When `false`, the console is **not** patched and nothing is mounted. |
-| `max` | `number` | `500` | Max buffered entries (oldest dropped). |
-| `captureGlobalErrors` | `boolean` | `true` | Capture `window` `error` + `unhandledrejection`. |
-| `position` | `'top-right' \| 'top-left' \| 'bottom-right' \| 'bottom-left'` | `'top-right'` | Launcher corner. |
-| `accent` | `string` | brand gradient | Any CSS color/gradient for accent (launcher, count pill, active chips). |
-| `open` | `boolean` | `false` | Open the panel immediately. |
-
-**`DebugConsoleHandle`**: `{ element, show(), hide(), toggle(), clear(), destroy() }`
-
-### Other exports
-
-- `startCapture({ max?, captureGlobalErrors? })` — begin capturing without mounting UI.
-- `defineDebugConsole(name?)` — register the custom element (default tag `debug-console`).
-- `logger` — the capture core (`logger.entries`, `logger.subscribe`, `logger.clear`).
-- Types: `DebugConsoleOptions`, `DebugConsoleHandle`, `LogEntry`, `LogLevel`, `LauncherPosition`.
+| `enabled` | `boolean` | `true` | Master switch. When `false`, the console is **not** patched and nothing is mounted — use it to disable in production. |
+| `max` | `number` | `500` | Maximum buffered entries; oldest are dropped past this. |
+| `captureGlobalErrors` | `boolean` | `true` | Also capture `window` `error` + `unhandledrejection` as error rows. |
+| `position` | `'top-right' \| 'top-left' \| 'bottom-right' \| 'bottom-left'` | `'top-right'` | Which corner the launcher pins to. |
+| `accent` | `string` | brand gradient | Any CSS color/gradient for the accent (launcher, count pill, active chips). Shorthand for setting `--dc-accent`. |
+| `open` | `boolean` | `false` | Start expanded. `false` = launcher icon only until clicked. |
 
 ## Theming
 
-The panel uses a fixed dark palette by default. Override any `--dc-*` custom
-property on the element (they pierce the shadow boundary):
+The panel ships a fixed dark "terminal" palette (theme-independent) exposed as
+CSS custom properties. Because custom properties inherit through the shadow
+boundary, you can override any of them **three** ways:
 
 ```ts
-const handle = initDebugConsole({ accent: '#22c55e' });
-handle?.element.style.setProperty('--dc-error', '#f87171');
+// 1) the accent shorthand
+initDebugConsole({ accent: '#22c55e' });
+
+// 2) imperatively on the element
+handle.element.style.setProperty('--dc-error', '#f87171');
 ```
 
-You can also style exposed parts: `debug-console::part(panel)`, `::part(launcher)`.
+```css
+/* 3) plain host CSS — targets the element, inherits into the shadow root */
+debug-console {
+  --dc-accent: #22c55e;
+  --dc-bg: #0d1117;
+}
+```
 
-## Out of scope
+### CSS variables
 
-- Specialized methods (`console.trace/table/dir/group/assert`).
+| Variable | Default | Purpose |
+|---|---|---|
+| `--dc-accent` | brand gradient | Launcher, count pill, active chips. |
+| `--dc-bg` | `#0b0e14` | Panel background. |
+| `--dc-surface` | `#11151f` | Header / filter bar background. |
+| `--dc-border` | `#232a3a` | Borders and scrollbar thumb. |
+| `--dc-text` | `#c9d1d9` | Default text. |
+| `--dc-muted` | `#8b949e` | Timestamps, muted / log level. |
+| `--dc-row-hover` | `rgba(255,255,255,.04)` | Row hover background. |
+| `--dc-shadow` | `0 10px 34px rgba(0,0,0,.5)` | Panel & launcher shadow. |
+| `--dc-error` | `#ff6b6b` | Error level. |
+| `--dc-warn` | `#ffc107` | Warn level. |
+| `--dc-info` | `#57bdff` | Info level + active toolbar icons. |
+| `--dc-badge-error` | `#dc3545` | Launcher error badge. |
+| `--dc-badge-warn` | `#ffc107` | Launcher warning badge. |
+
+### Shadow parts
+
+Two elements are exposed via `::part()` for structural styling:
+
+```css
+debug-console::part(launcher) { /* the corner button */ }
+debug-console::part(panel)    { /* the sliding panel */ }
+```
+
+## Recipes
+
+```ts
+// Enable only outside production, start collapsed
+initDebugConsole({ enabled: !import.meta.env.PROD });
+
+// Start expanded in the bottom-left, green accent
+initDebugConsole({ open: true, position: 'bottom-left', accent: '#22c55e' });
+
+// Control it programmatically
+const dc = initDebugConsole();
+dc?.show();
+document.querySelector('#logs-btn')?.addEventListener('click', () => dc?.toggle());
+
+// Bigger buffer, no global-error capture
+initDebugConsole({ max: 2000, captureGlobalErrors: false });
+
+// Register under a custom tag (declarative usage)
+defineDebugConsole('app-logs');
+```
+
+## Troubleshooting
+
+| Symptom | Cause & fix |
+|---|---|
+| **No launcher appears / nothing captured.** | `enabled` resolved to `false` (e.g. you gated it on an env flag), or there's no DOM (SSR). `initDebugConsole` returns `null` in both cases — check the return value. |
+| **Early logs are missing.** | Capture only starts once `initDebugConsole()`/`startCapture()` runs. Call it **first thing** in your entry file so nothing logged before it is lost. |
+| **Launcher is anchored to the wrong place / scrolls with the page.** | An ancestor (often `<body>`) has a `transform`/`filter`/`perspective`, which makes `position: fixed` anchor to that ancestor instead of the viewport (standard CSS). Remove the transform from that ancestor, or mount `<debug-console>` outside it. |
+| **A specific `console.*` call isn't showing.** | Only `log`, `info`, `warn`, `error`, `debug` are mirrored. `console.trace/table/dir/group/assert` are [out of scope](#limitations--out-of-scope). |
+| **The panel covers my app's own top bar.** | The panel slides down from the top; move the launcher with `position: 'bottom-right'` (or `'bottom-left'`), or raise your app's own top UI. The overlay uses a very high `z-index` by design so it stays on top. |
+| **Colors don't match / accent ignored.** | Custom properties must be set on the element (or an ancestor it inherits from). Use `accent`, `--dc-accent`, or the [theming](#theming) overrides — not global styles targeting inner classes (they're inside a shadow root and unreachable). |
+| **Still visible in production.** | Pass `enabled: false` (or gate it on `NODE_ENV`/`import.meta.env.PROD`) so the console is never patched and nothing mounts. See [Configuration options](#configuration-options). |
+
+## Develop & run the demo
+
+Clone the repo, then:
+
+```bash
+npm install        # install dev tooling (tsup + typescript)
+npm run build      # bundle to dist/ (ESM + CJS + .d.ts)
+npm run dev        # rebuild on change (watch mode)
+npm run typecheck  # type-check without emitting
+```
+
+A zero-config live demo lives in [`demo/index.html`](demo/index.html). It loads the
+built `dist/index.js`, so build first, then serve the package root with any static
+server and open the `/demo/` path:
+
+```bash
+npm run build
+npx serve .        # then open http://localhost:3000/demo/
+```
+
+The demo has buttons for every capture path — `console.log/info/warn/error/debug`,
+large & circular objects, `bigint`, bursts of lines, uncaught errors, and unhandled
+rejections — so you can exercise the panel end to end.
+
+## Limitations / out of scope
+
+- Specialized methods (`console.trace/table/dir/group/assert`) are not captured.
 - Browser-native messages the app didn't log itself (failed network / CORS / CSP)
   only appear if your own error handling logs them via `console.*`.
+- Uses `position: fixed`; if a `transform`/`filter` is set on an ancestor of the
+  element (e.g. `<body>`), fixed positioning anchors to that ancestor instead of the
+  viewport (standard CSS behaviour).
+- Under extreme logging bursts (tens of thousands of rapid calls) the panel does
+  O(buffer) bookkeeping per entry, like DevTools' own console.
 
 ## License
 

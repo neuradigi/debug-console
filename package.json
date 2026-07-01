@@ -37,11 +37,15 @@
     "vue",
     "svelte"
   ],
-  "author": "",
+  "author": "Neuradigi",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": ""
+    "url": "git+https://github.com/neuradigi/debug-console.git"
+  },
+  "homepage": "https://github.com/neuradigi/debug-console#readme",
+  "bugs": {
+    "url": "https://github.com/neuradigi/debug-console/issues"
   },
   "publishConfig": {
     "access": "public"
