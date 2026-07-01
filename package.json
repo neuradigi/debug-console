@@ -8,9 +8,14 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     }
   },
   "files": [
@@ -37,7 +42,7 @@
     "vue",
     "svelte"
   ],
-  "author": "Neuradigi",
+  "author": "Neuradigi Technologies <hello@neuradigi.com> (https://neuradigi.com)",
   "license": "MIT",
   "repository": {
     "type": "git",
