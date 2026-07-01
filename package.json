@@ -1,0 +1,53 @@
+{
+  "name": "@neuradigi/debug-console",
+  "version": "0.1.0",
+  "description": "Framework-agnostic in-app console overlay that mirrors console.* and uncaught errors into a floating debug panel. Works in Angular, React, Vue, Svelte, or plain HTML — zero runtime dependencies.",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "console",
+    "logging",
+    "logger",
+    "debug",
+    "devtools",
+    "overlay",
+    "web-component",
+    "custom-element",
+    "angular",
+    "react",
+    "vue",
+    "svelte"
+  ],
+  "author": "",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": ""
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "devDependencies": {
+    "tsup": "^8.3.0",
+    "typescript": "^5.6.0"
+  }
+}

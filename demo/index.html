@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>@neuradigi/debug-console — demo</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: #f5f7fb;
+      color: #1a2030;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .card {
+      max-width: 640px;
+      margin: 80px 20px;
+      padding: 28px;
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+    }
+    h1 { margin: 0 0 6px; font-size: 1.4rem; }
+    p.sub { margin: 0 0 20px; color: #667; }
+    .grid { display: flex; flex-wrap: wrap; gap: 10px; }
+    button {
+      padding: 9px 16px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      border: 1px solid #dde3ee;
+      border-radius: 10px;
+      background: #f7f9ff;
+      color: #2a3550;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+    }
+    button:hover { background: #eef2ff; }
+    button:active { transform: translateY(1px); }
+    button.danger { color: #b42318; border-color: #f3caca; background: #fff4f4; }
+    button.warn { color: #8a6100; border-color: #f3e3ca; background: #fffaf0; }
+    code { background: #eef1f7; padding: 2px 6px; border-radius: 5px; font-size: 0.85em; }
+    .hint { margin-top: 20px; font-size: 0.85rem; color: #889; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Debug Console — live demo</h1>
+    <p class="sub">Click the buttons, then use the <strong>launcher</strong> in the corner to open the panel.</p>
+
+    <div class="grid">
+      <button onclick="console.log('Plain log', { user: 'abhishek', ok: true })">console.log</button>
+      <button onclick="console.info('Info message with a link https://npmjs.com/package/@neuradigi/debug-console')">console.info</button>
+      <button class="warn" onclick="console.warn('Deprecation warning: doThing() will be removed in v2')">console.warn</button>
+      <button class="danger" onclick="console.error('Request failed', new Error('HTTP 500'))">console.error</button>
+      <button onclick="console.debug('debug detail', { retries: 3 })">console.debug</button>
+      <button onclick="logBig()">log big object</button>
+      <button onclick="logCircular()">circular ref</button>
+      <button onclick="logMany()">log 60 lines</button>
+      <button class="danger" onclick="boom()">throw uncaught error</button>
+      <button class="danger" onclick="rejectIt()">unhandled rejection</button>
+    </div>
+
+    <p class="hint">
+      Served build: <code>../dist/index.js</code>. Run from the package root with
+      <code>npx serve .</code> (or any static server) and open <code>/demo/</code>.
+    </p>
+  </div>
+
+  <script type="module">
+    import { initDebugConsole } from '../dist/index.js';
+
+    // Default UX: starts CLOSED — only the launcher icon shows (top-right).
+    // Click it to expand. Pass `open: true` here if you'd rather start expanded.
+    initDebugConsole({ enabled: true, position: 'top-right', open: false });
+
+    // Seed one line so the panel isn't empty the first time you open it.
+    console.info('Debug console ready — click the buttons above to generate logs.');
+
+    window.logBig = () =>
+      console.log('Config loaded', {
+        api: 'https://api.example.com', timeout: 30000,
+        features: { a: true, b: false, nested: { deep: [1, 2, 3], big: 9007199254740993n } }
+      });
+    window.logCircular = () => { const o = { name: 'node' }; o.self = o; console.log('circular', o); };
+    window.logMany = () => { for (let i = 1; i <= 60; i++) console.log(`line ${i} — scroll + auto-follow test`); };
+    window.boom = () => { throw new Error('Boom! An uncaught error.'); };
+    window.rejectIt = () => { Promise.reject(new Error('A promise nobody caught')); };
+  </script>
+</body>
+</html>
