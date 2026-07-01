@@ -77,12 +77,17 @@ so logs are captured from boot:
 import { initDebugConsole } from '@neuradigi/debug-console';
 
 initDebugConsole({
-  enabled: process.env.NODE_ENV !== 'production', // hide entirely in prod
-  max: 500,
-  position: 'top-right',
-  open: false // start collapsed (launcher icon only); true = start expanded
+  enabled: process.env.NODE_ENV !== 'production', // master switch; false = never patch console, mount nothing (use to hide in prod)
+  max: 500,                    // keep at most this many log lines; oldest are dropped past it
+  captureGlobalErrors: true,   // also capture uncaught errors + unhandled promise rejections as error rows
+  position: 'top-right',       // which corner the launcher sits in: 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left'
+  accent: '#22c55e',           // any CSS color/gradient for the launcher, count pill and active filter chips
+  open: false                  // false = start collapsed (launcher icon only); true = start expanded
 });
 ```
+
+Every option is optional — pass only the ones you want to change. The full reference,
+with types and defaults, is in [Configuration options](#configuration-options).
 
 That's it — a launcher button appears in the corner; click it to open the panel.
 See [Configuration options](#configuration-options) for every setting.
@@ -105,14 +110,45 @@ defineDebugConsole();  // register the <debug-console> custom element
 
 ## Per-framework notes
 
-In every framework the simplest path is the same: call `initDebugConsole()` **once**
-at your app's entry point and you're done — no template tag, no schema, no registration.
-The notes below only matter if you'd rather place the `<debug-console>` tag in your own
-markup (see [Declarative usage](#declarative-usage-render-the-element-yourself)).
+The rule is the same everywhere: **`import` and call `initDebugConsole()` at the very
+top of your app's entry file — before the framework boots** — so even the framework's
+own startup logs are captured. Each example below is the *complete* entry file; the only
+lines you add are the `import` and the `initDebugConsole(...)` call (highlighted with
+comments). No template tag, schema, or registration is required for this path.
 
-**Angular** — call `initDebugConsole()` in `main.ts` (or an `APP_INITIALIZER`). No
-`CUSTOM_ELEMENTS_SCHEMA` is needed when mounted via `initDebugConsole()`. Only if you
-put the `<debug-console>` tag in a template do you need the schema on that component:
+### Angular
+
+Put the two lines at the top of `src/main.ts`, before `bootstrapApplication`:
+
+```ts
+// src/main.ts
+import { initDebugConsole } from '@neuradigi/debug-console';   // 1. import
+import { bootstrapApplication } from '@angular/platform-browser';
+import { AppComponent } from './app/app.component';
+import { appConfig } from './app/app.config';
+
+initDebugConsole({ enabled: true });                           // 2. call it FIRST
+
+bootstrapApplication(AppComponent, appConfig)
+  .catch(err => console.error(err));
+```
+
+Using the older NgModule bootstrap? Same idea:
+
+```ts
+// src/main.ts
+import { initDebugConsole } from '@neuradigi/debug-console';
+import { platformBrowserDynamic } from '@angular/platform-browser-dynamic';
+import { AppModule } from './app/app.module';
+
+initDebugConsole({ enabled: true });
+
+platformBrowserDynamic().bootstrapModule(AppModule)
+  .catch(err => console.error(err));
+```
+
+No `CUSTOM_ELEMENTS_SCHEMA` is needed when mounted via `initDebugConsole()`. Only if you
+place the `<debug-console>` tag in a component template do you add the schema there:
 
 ```ts
 import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
@@ -121,9 +157,28 @@ import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 export class AppComponent {}
 ```
 
-**React** — call `initDebugConsole()` in your entry (e.g. `main.tsx`). Custom elements
-work in JSX out of the box. Only if you write `<debug-console />` yourself in **TypeScript**
-do you need to declare the tag (once, in any `.d.ts` or your entry file):
+### React
+
+Add the two lines at the top of `src/main.tsx` (or `index.tsx`), before `createRoot`:
+
+```tsx
+// src/main.tsx
+import { initDebugConsole } from '@neuradigi/debug-console';   // 1. import
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App';
+
+initDebugConsole({ enabled: true });                           // 2. call it FIRST
+
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
+```
+
+Custom elements work in JSX out of the box. Only if you write `<debug-console />` yourself
+in **TypeScript** do you need to declare the tag once (any `.d.ts` or your entry file):
 
 ```tsx
 declare global {
@@ -136,8 +191,23 @@ declare global {
 }
 ```
 
-**Vue** — call `initDebugConsole()` in `main.ts`. If you use the tag in a template, tell
-the compiler it's a custom element so Vue doesn't warn or try to resolve it as a component:
+### Vue
+
+Add the two lines at the top of `src/main.ts`, before `createApp(...).mount(...)`:
+
+```ts
+// src/main.ts
+import { initDebugConsole } from '@neuradigi/debug-console';   // 1. import
+import { createApp } from 'vue';
+import App from './App.vue';
+
+initDebugConsole({ enabled: true });                           // 2. call it FIRST
+
+createApp(App).mount('#app');
+```
+
+If you use the `<debug-console>` tag inside a Vue template, tell the compiler it's a
+custom element so Vue doesn't warn or try to resolve it as a component:
 
 ```ts
 // vite.config.ts
@@ -150,12 +220,62 @@ export default {
 };
 ```
 
-**Svelte / SvelteKit** — call `initDebugConsole()` in `onMount` (or the client entry).
-Svelte passes unknown tags through to the DOM, so `<debug-console>` needs no config. On
-SvelteKit, guard for the browser (the call already no-ops during SSR, so `onMount` is enough).
+### Svelte / SvelteKit
 
-**Plain HTML** — with a bundler, `import { initDebugConsole } from '@neuradigi/debug-console'`.
-Without one, import from a CDN as shown in [Install](#install).
+**Svelte (Vite)** — add the two lines at the top of `src/main.ts`, before `new App(...)`:
+
+```ts
+// src/main.ts
+import { initDebugConsole } from '@neuradigi/debug-console';   // 1. import
+import App from './App.svelte';
+
+initDebugConsole({ enabled: true });                           // 2. call it FIRST
+
+export default new App({ target: document.getElementById('app')! });
+```
+
+**SvelteKit** — the app runs on the server too, so call it from the browser only. The
+tidiest spot is the root layout's `onMount` (it already no-ops during SSR, but `onMount`
+guarantees it runs client-side):
+
+```svelte
+<!-- src/routes/+layout.svelte -->
+<script>
+  import { onMount } from 'svelte';
+  onMount(() => import('@neuradigi/debug-console').then(m => m.initDebugConsole()));
+</script>
+
+<slot />
+```
+
+Svelte passes unknown tags straight through to the DOM, so `<debug-console>` needs no config.
+
+### Plain HTML
+
+With a bundler, import as above. Without one, import from a CDN — this is a complete,
+working page:
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>My app</title>
+    <script type="module">
+      import { initDebugConsole } from 'https://esm.sh/@neuradigi/debug-console';
+      initDebugConsole({ enabled: true });
+    </script>
+  </head>
+  <body>
+    <h1>Hello</h1>
+    <!-- Use type="module" so this runs AFTER the init above (module scripts run
+         in document order, after the page parses) and its logs are captured. -->
+    <script type="module">
+      console.log('This line appears in the debug console overlay.');
+    </script>
+  </body>
+</html>
+```
 
 ## Panel controls
 
